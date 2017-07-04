@@ -4,13 +4,12 @@ import datetime
 
 definedhostname = 'example.com'
 region = 'us-east-1'
-#snstopicarn = 'arn:aws:sns:us-east-1:444455556666:MyTopic'
+snstopicarn = 'arn:aws:sns:us-east-1:444455556666:MyTopic'
 dynamodb = boto3.resource('dynamodb', region_name=region)
 table = dynamodb.Table('known_ip_db')
 
 
 def lambda_handler(event, context):
-
     #lookup all returning ips from the hostname both ipv4 and ipv6
     resolvedips = list( map( lambda x: x[4][0], socket.getaddrinfo(definedhostname, 80, type=socket.SOCK_STREAM)))
     print("The IPs returned from making a connection to {} were {}".format(definedhostname, resolvedips))
@@ -43,13 +42,17 @@ def lambda_handler(event, context):
         if lastnotification == datetime.date.today().strftime('%Y-%m-%d'):
             print("Alert was already sent today, will not notify again until tomorrow.")
         else:
-            #sns = boto3.client('sns', region_name=region)
-            #sns.publish(TopicArn=snstopicarn, Subject='DNS History for a polled URL was updated', Message='New IP addresses were detected for polled hostnames and stored to the DynamoDB table. This email message only fires once per day, per polled URL.')
+            sns = boto3.client('sns', region_name=region)
+            sns.publish(TopicArn=snstopicarn,
+                        Subject='DNS History for a {} was updated'.format(definedhostname),
+                        Message='New IPs found for {}, the documented IPs are now {}'
+                                'This email message only fires once per day, '
+                                'per polled URL'.format(definedhostname, newlydiscoveredips))
             updatelastnotifieddate(datetime.date.today().strftime('%Y-%m-%d'))
     else:
         print("No new valid IP addresses discovered for {}".format(definedhostname))
 
-#will attempt to validate ip addresses for validity, both ipv4 and ipv6
+#will attempt to check ip addresses for validity, both ipv4 and ipv6
 def validipcheck(addr):
     print("Checking to see if {} is a valid IP... ".format(addr))
     try:
